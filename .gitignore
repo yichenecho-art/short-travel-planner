@@ -1,0 +1,5 @@
+sparql.rdf
+*.tsv
+.DS_Store
+.memory/
+tools/

@@ -469,22 +469,28 @@ document.querySelectorAll("#chips .chip").forEach(ch=>ch.onclick=()=>{
   ch.classList.add("on");activeCat=ch.dataset.cat;activeSub="all";activeBatch="all";activeMusLevel="all";
   renderSubchips();renderList();renderMarkers();
 });
-let _searchTimer=null;
+let _searchTimer=null,_renderTimer=null;
 $("#search").oninput=e=>{
   _geocodedToPlace=false;            // 新输入时重置地理编码模式
-  query=e.target.value;renderList();renderMarkers();
+  query=e.target.value;
+  clearTimeout(_renderTimer);
   clearTimeout(_searchTimer);
+  // 防抖：停止输入 150ms 后再渲染列表和标记，避免每个字符都触发全量重渲染
+  _renderTimer=setTimeout(()=>{renderList();renderMarkers();},150);
   const q=query.trim();
   if(q.length<2)return;
+  // 在输入框显示"定位中"提示
+  $("#search").style.borderColor="#f0a020";
   _searchTimer=setTimeout(()=>{
     // 始终尝试地理编码定位
     fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q+' 中国')}&format=json&limit=1`)
       .then(r=>r.json()).then(res=>{
+        $("#search").style.borderColor="";
         if(res.length){
           // 找到地点：定位到该地，取消名称筛选，由可视区域过滤接管
-          // 不在此处渲染 marker，等 moveend 后地图稳定再统一刷新
           _geocodedToPlace=true;
-          renderList();          // 仅更新计数，不动 marker
+          renderList();
+          renderMarkers();   // 立即清除名称筛选的旧标记，给用户即时反馈
           const bb=res[0].boundingbox;
           if(bb)map.flyToBounds([[+bb[0],+bb[2]],[+bb[1],+bb[3]]],{duration:.8,padding:[60,60],maxZoom:10});
           else map.flyTo([+res[0].lat,+res[0].lon],9,{duration:.8});
@@ -497,8 +503,8 @@ $("#search").oninput=e=>{
             else if(pts.length>1)map.flyToBounds(L.latLngBounds(pts).pad(0.3),{duration:.8,maxZoom:13});
           }
         }
-      }).catch(()=>{});
-  },600);
+      }).catch(()=>{$("#search").style.borderColor="";});
+  },350);
 };
 $("#vfToggle").onchange=e=>{viewportFilter=e.target.checked;renderList();};
 map.on("moveend",()=>{if(viewportFilter){renderList();renderMarkers();}});

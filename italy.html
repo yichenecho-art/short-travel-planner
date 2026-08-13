@@ -285,7 +285,7 @@ function openDetail(id){
       <div class="btns">
         <button class="add ${inTrip?"in":""}" onclick="toggleTrip('${d.id}')">${inTrip?"✓ 已在行程·移除":"➕ 加入行程"}</button>
         <a href="https://maps.google.com/maps?q=${d.lat},${d.lng}&z=15" target="_blank">Google Maps</a>
-        <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(d.wiki||d.name)}" target="_blank">Wikipedia</a>
+        <a href="https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(d.wiki||d.name)}" target="_blank" rel="noopener">Wikipedia</a>
       </div>`;
   }
   const emoji=d.sub==="自然"?"🏞️":d.sub==="双重"?"🌍":"🏛️";

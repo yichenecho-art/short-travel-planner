@@ -360,7 +360,7 @@ function openDetail(id){
       <div class="btns">
         <button class="add ${inTrip?"in":""}" onclick="toggleTrip('${d.id}')">${inTrip?"✓ 已在行程·移除":"➕ 加入行程"}</button>
         <a href="https://uri.amap.com/marker?position=${d.lng},${d.lat}&name=${encodeURIComponent(d.name)}" target="_blank">高德导航</a>
-        <a href="https://zh.wikipedia.org/wiki/${encodeURIComponent(d.wiki||d.name)}" target="_blank">百科</a>
+        <a href="https://zh.wikipedia.org/w/index.php?search=${encodeURIComponent(d.wiki||d.name)}" target="_blank" rel="noopener">百科</a>
       </div>`;
   }
   $("#detail").style.display="block";

@@ -1,5 +1,8 @@
-(() => {
+(async () => {
   const config = window.MOBILE_CONFIG;
+  const isChinaMobile = location.pathname.endsWith('mobile-china.html');
+  const loadDataScript = src => new Promise(resolve => { const script=document.createElement('script'); script.src=src; script.onload=script.onerror=resolve; document.head.append(script); });
+  if (isChinaMobile) await Promise.all(['guobao_full.js','museums_full.js'].map(loadDataScript));
   const desktopLink = document.querySelector('.desktop-link');
   if (location.pathname.endsWith('mobile-china.html')) desktopLink.href = 'china.html?desktop=1';
   if (location.pathname.endsWith('mobile-italy.html')) desktopLink.href = 'italy.html?desktop=1';
@@ -15,7 +18,18 @@
   const map = L.map('map', { zoomControl: true }).setView(config.center, config.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
   const markers = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 42 }); map.addLayer(markers);
-  const data = (config.data() || []).filter(x => Number.isFinite(+x.lat) && Number.isFinite(+x.lng));
+  const chineseCompleteData = () => {
+    if (!isChinaMobile) return config.data() || [];
+    const base = [...(config.data() || [])], normalizeName = value => String(value || '').replace(/[＂"“”'’‘\s·、，,．.\-—－()（）\[\]【】]/g,'');
+    const seen = new Set(base.map(item => normalizeName(item.name)));
+    const append = item => { const key=normalizeName(item.name); if (key && !seen.has(key)) { seen.add(key); base.push(item); } };
+    const batchName = batch => batch > 0 ? `第${'零一二三四五六七八'[batch]}批国保` : '国保单位';
+    (window.EXTRA_GB || []).forEach((item,index) => append({ id:`mobile-gb-${index}`, cat:'gb', name:item.name, prov:item.prov || '', city:item.city || item.prov || '', lat:+item.lat, lng:+item.lng, rating:`${batchName(+item.batch || 0)}${item.type ? ` · ${item.type}` : ''}`, wiki:item.wiki || item.name, intro:item.intro || (item.type ? `类型：${item.type}。` : '全国重点文物保护单位。') }));
+    const levelLabel = { 一级:'国家一级博物馆', 二级:'国家二级博物馆', 美术馆:'国家重点美术馆' };
+    (window.EXTRA_MUS || []).forEach((item,index) => append({ id:`mobile-mus-${index}`, cat:'mus', name:item.name, lat:+item.lat, lng:+item.lng, rating:levelLabel[item.level] || '博物馆', wiki:item.name, intro:levelLabel[item.level] || '博物馆' }));
+    return base;
+  };
+  const data = chineseCompleteData().filter(x => Number.isFinite(+x.lat) && Number.isFinite(+x.lng));
   const color = item => config.colors[item.kind] || '#64748b';
   const wikiLanguage = location.pathname.endsWith('mobile-china.html') ? 'zh' : 'en';
   const wikiUrl = item => { const query = item.wiki || item.name || item.zh || item.en; return item.qid ? `https://www.wikidata.org/wiki/${item.qid}` : (!query ? '' : (/^https?:\/\//.test(query) ? query : `https://${wikiLanguage}.wikipedia.org/w/index.php?search=${encodeURIComponent(query)}`)); };

@@ -1,5 +1,9 @@
 (() => {
   const config = window.MOBILE_CONFIG;
+  const desktopLink = document.querySelector('.desktop-link');
+  if (location.pathname.endsWith('mobile-china.html')) desktopLink.href = 'china.html?desktop=1';
+  if (location.pathname.endsWith('mobile-italy.html')) desktopLink.href = 'italy.html?desktop=1';
+  if (location.pathname.endsWith('mobile-world.html')) desktopLink.href = 'world.html?desktop=1';
   const $ = s => document.querySelector(s);
   const state = { filter: 'all', query: '', detail: null };
   const map = L.map('map', { zoomControl: true }).setView(config.center, config.zoom);

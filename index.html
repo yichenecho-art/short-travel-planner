@@ -3,523 +3,161 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>短途旅行规划 · 文化目的地地图</title>
-<link rel="stylesheet" href="lib/leaflet.min.css">
-<link rel="stylesheet" href="lib/MarkerCluster.min.css">
-<link rel="stylesheet" href="lib/MarkerCluster.Default.min.css">
-<script src="lib/leaflet.min.js"></script>
-<script src="lib/leaflet.markercluster.min.js"></script>
+<script>if(!location.search.includes('desktop=1')&&matchMedia('(max-width:760px)').matches)location.replace('mobile.html');</script>
+<title>世界遗产地图 · 导航</title>
 <style>
-:root{
-  --whs:#d4453a; --nat:#2e8b57; --mix:#7b5cc4; --gb:#c98a2d; --mus:#3a6fd8;
-  --bg:#f6f5f2; --panel:#ffffff; --ink:#2b2b2b; --muted:#8a8a8a; --line:#e8e6e1;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);height:100vh;overflow:hidden}
-#app{display:flex;height:100vh}
-/* ---------- 侧栏 ---------- */
-#side{width:380px;min-width:320px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:1000}
-#side header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
-#side h1{font-size:17px;font-weight:700}
-#side h1 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-.home-link{display:inline-block;margin-top:7px;color:#3a6fd8;font-size:12px;text-decoration:none}
-.home-link:hover{text-decoration:underline}
-#search{width:100%;margin-top:10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--bg)}
-#search:focus{border-color:#bbb}
-#chips,#subchips{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
-.chip{padding:5px 11px;border-radius:99px;font-size:12px;cursor:pointer;border:1px solid var(--line);background:#fff;user-select:none;transition:.15s}
-.chip.on{color:#fff;border-color:transparent}
-.chip[data-cat="all"].on{background:var(--ink)}
-.chip[data-cat="whs"].on{background:var(--whs)}
-.chip[data-cat="gb"].on{background:var(--gb)}
-.chip[data-cat="mus"].on{background:var(--mus)}
-.subchip{padding:3px 9px;border-radius:99px;font-size:11px;cursor:pointer;border:1px solid var(--line);background:#fdfdfc;color:#666;user-select:none}
-.subchip.on{background:#555;color:#fff;border-color:transparent}
-#count{font-size:11px;color:var(--muted);margin-top:8px}
-.map-tip{background:rgba(30,30,30,.88);color:#fff;border:none;border-radius:5px;font-size:12px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)}
-.map-tip::before{display:none}
-#vfLabel{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:6px;cursor:pointer;user-select:none}
-#vfLabel input{cursor:pointer;accent-color:var(--mus)}
-#list{flex:1;overflow-y:auto}
-.item{padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:flex-start}
-.item:hover{background:#faf9f6}
-.item.active{background:#f3f1ea}
-.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0}
-.item .t{font-size:14px;font-weight:600;line-height:1.4}
-.item .s{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.5}
-.badge{font-size:10px;padding:1px 6px;border-radius:4px;color:#fff;margin-left:6px;vertical-align:1px;white-space:nowrap}
-.stars{color:#e8a33d;font-size:11px;letter-spacing:1px}
-.expander{font-size:11px;color:#3a6fd8;margin-top:3px;user-select:none}
-.childitem{padding:7px 16px 7px 40px;border-bottom:1px dashed var(--line);cursor:pointer;background:#fcfbf9}
-.childitem:hover{background:#f5f3ee}
-.childitem .t{font-size:12.5px;font-weight:500}
-.childitem .s{font-size:11px;color:var(--muted)}
-/* ---------- 地图 ---------- */
-#mapwrap{flex:1;position:relative}
-#map{height:100%}
-#tileToggle{position:absolute;top:10px;right:10px;z-index:800;background:#fff;border:1px solid var(--line);border-radius:8px;font-size:12px;padding:6px 10px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.12)}
-/* ---------- 详情卡片 ---------- */
-#detail{position:absolute;top:10px;left:10px;z-index:900;width:335px;max-height:calc(100% - 70px);overflow-y:auto;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:none}
-#detail .img{height:170px;background:#ddd center/cover no-repeat;border-radius:14px 14px 0 0;position:relative;display:flex;align-items:center;justify-content:center;font-size:48px}
-#detail .close{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);color:#fff;border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1}
-#detail .body{padding:14px 16px 16px}
-#detail h2{font-size:16.5px;line-height:1.4}
-#detail .meta{font-size:12px;color:var(--muted);margin:4px 0 8px}
-#detail .tag{display:inline-block;font-size:11px;color:#fff;padding:2px 8px;border-radius:5px;margin:0 6px 4px 0}
-#detail .row{display:flex;font-size:13px;margin-top:7px;line-height:1.5}
-#detail .row .k{width:74px;color:var(--muted);flex-shrink:0}
-#detail .intro{font-size:13px;line-height:1.7;margin-top:10px;color:#444}
-#detail .btns{display:flex;gap:8px;margin-top:14px}
-#detail .btns a,#detail .btns button{flex:1;text-align:center;font-size:12.5px;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
-#detail .btns .add{background:var(--ink);color:#fff;border-color:var(--ink)}
-#detail .btns .add.in{background:#888;border-color:#888}
-.kidlink{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;margin-top:6px;cursor:pointer}
-.kidlink:hover{background:#f7f5f0}
-/* ---------- 行程栏 ---------- */
-#trip{position:absolute;bottom:0;left:0;right:0;z-index:900;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-#trip .label{font-size:12.5px;font-weight:700;flex-shrink:0}
-#tripList{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:120px}
-.stop{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 8px 3px 4px;font-size:12px}
-.stop .n{background:var(--ink);color:#fff;width:17px;height:17px;border-radius:50%;font-size:10.5px;display:flex;align-items:center;justify-content:center}
-.stop button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0 2px}
-#tripInfo{font-size:11.5px;color:var(--muted);flex-shrink:0}
-#tripClear{font-size:11.5px;border:none;background:none;color:#b04a3e;cursor:pointer;flex-shrink:0}
-.leaflet-popup-content{margin:10px 14px;font-size:13px}
-.pop-t{font-weight:700;font-size:14px;cursor:pointer}
-.pop-s{color:#888;font-size:11.5px;margin-top:2px}
-@media (max-width:760px){
-  #app{flex-direction:column}
-  #side{width:100%;height:44%;min-width:0;border-right:none;border-bottom:1px solid var(--line)}
-  #detail{width:calc(100% - 20px)}
-}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0d1b2a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #e0e0e0;
+  }
+
+  header { text-align: center; margin-bottom: 48px; }
+  header h1 {
+    font-size: 32px;
+    color: #a0c4ff;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header p {
+    font-size: 15px;
+    color: #7a8ea0;
+    line-height: 1.6;
+  }
+
+  .cards {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 900px;
+    width: 100%;
+  }
+
+  .card {
+    background: #16213e;
+    border: 1px solid #1e3a5f;
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 260px;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(160,196,255,0.05), transparent);
+    pointer-events: none;
+  }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    border-color: #a0c4ff;
+  }
+
+  .card .emoji { font-size: 52px; margin-bottom: 14px; display: block; }
+  .card h2 { font-size: 20px; color: #a0c4ff; margin-bottom: 8px; }
+  .card .sub { font-size: 13px; color: #6bd5e1; margin-bottom: 14px; font-style: italic; }
+  .card p { font-size: 13px; color: #8a9ab0; line-height: 1.6; }
+
+  .badge-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 14px;
+  }
+  .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: bold;
+  }
+  .tag-c { background: #ffb347; color: #111; }
+  .tag-n { background: #6bcb77; color: #111; }
+  .tag-m { background: #c77dff; color: #111; }
+
+  .world-card { border-color: #2a4a6e; }
+  .world-card:hover { border-color: #6bd5e1; }
+  .world-card h2 { color: #6bd5e1; }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 12px;
+    color: #3a4a5a;
+    line-height: 1.8;
+  }
+  footer a { color: #4a6a8a; text-decoration: none; }
+  footer a:hover { color: #a0c4ff; }
 </style>
 </head>
 <body>
-<div id="app">
-  <aside id="side">
-    <header>
-      <h1>短途旅行规划<small>文化目的地 · 快速选点</small></h1>
-      <a class="home-link" href="home.html">← 返回首页</a>
-      <input id="search" placeholder="搜索名称 / 城市 / 省份（含子景点）…">
-      <div id="chips">
-        <span class="chip on" data-cat="all">全部</span>
-        <span class="chip" data-cat="whs">世界遗产</span>
-        <span class="chip" data-cat="gb">国保单位</span>
-        <span class="chip" data-cat="mus">博物馆·展览</span>
-      </div>
-      <div id="subchips" style="display:none"></div>
-      <div id="count"></div>
-      <label id="vfLabel"><input type="checkbox" id="vfToggle" checked> 仅显示地图可视区域内的景点</label>
-    </header>
-    <div id="list"></div>
-  </aside>
-  <div id="mapwrap">
-    <div id="map"></div>
-    <button id="tileToggle">底图：OpenStreetMap ⇄</button>
-    <div id="detail"></div>
-    <div id="trip">
-      <span class="label">🧭 行程清单</span>
-      <div id="tripList"></div>
-      <span id="tripInfo"></span>
-      <button id="tripClear" style="display:none">清空</button>
+
+<header>
+  <h1>🏛️ 世界遗产地图</h1>
+  <p>联合国教科文组织 UNESCO 世界遗产名录 · 交互式地图集<br>
+  点击下方选择要查看的地区</p>
+</header>
+
+<div class="cards">
+
+  <!-- 全球地图 -->
+  <a class="card world-card" href="world.html">
+    <span class="emoji">🌍</span>
+    <h2>全球遗产总览</h2>
+    <div class="sub">World Heritage — All Sites</div>
+    <p>全球 1500+ 处世界遗产，实时从 Wikidata 加载，支持按类型筛选与关键词搜索。</p>
+    <div class="badge-row">
+      <span class="tag tag-c">文化</span>
+      <span class="tag tag-n">自然</span>
+      <span class="tag tag-m">混合</span>
     </div>
-  </div>
+  </a>
+
+  <!-- 中国 -->
+  <a class="card" href="china.html">
+    <span class="emoji">🇨🇳</span>
+    <h2>中国</h2>
+    <div class="sub">China · 59 处</div>
+    <p>涵盖长城、故宫、黄山、峨眉山等世界遗产，含简介、最佳旅行月份与票价信息。</p>
+    <div class="badge-row">
+      <span class="tag tag-c">文化 39</span>
+      <span class="tag tag-n">自然 15</span>
+      <span class="tag tag-m">混合 5</span>
+    </div>
+  </a>
+
+  <!-- 意大利 -->
+  <a class="card" href="italy.html">
+    <span class="emoji">🇮🇹</span>
+    <h2>意大利</h2>
+    <div class="sub">Italy · 58 处</div>
+    <p>全球遗产数量最多的国家之一，含罗马历史中心、威尼斯、庞贝、阿马尔菲等名胜。</p>
+    <div class="badge-row">
+      <span class="tag tag-c">文化 53</span>
+      <span class="tag tag-n">自然 5</span>
+    </div>
+  </a>
+
 </div>
 
-<script src="data.js"></script>
-<script src="guobao_full.js" onerror="void 0"></script>
-<script src="museums_full.js" onerror="void 0"></script>
-<script>
-/* ================= 基础 ================= */
-const CAT={whs:{label:"世界遗产",hex:"#d4453a"},gb:{label:"国保单位",hex:"#c98a2d"},mus:{label:"博物馆·展览",hex:"#3a6fd8"}};
-const SUBHEX={"文化":"#d4453a","自然":"#2e8b57","双重":"#7b5cc4"};
-const $=s=>document.querySelector(s);
-const colorOf=e=>e.cat==="whs"?(SUBHEX[e.sub]||CAT.whs.hex):CAT[e.cat].hex;
+<footer>
+  <p>数据来源：<a href="https://whc.unesco.org/" target="_blank">UNESCO 世界遗产中心</a> · <a href="https://www.wikidata.org/" target="_blank">Wikidata</a></p>
+  <p>地图底图：<a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors</p>
+</footer>
 
-/* 合并可选的全量国保数据（window.EXTRA_GB 由 guobao_full.js 提供） */
-const batchName=b=>b>0?("第"+"零一二三四五六七八"[b]+"批"):"批次待核";
-if(typeof window!=="undefined"&&Array.isArray(window.EXTRA_GB)){
-  const normName=s=>String(s).replace(/[＂"“”'’‘\s·、，,．.\-—－()（）\[\]【】]/g,"");
-  /* 已收录的名称（精选国保 + 世遗及其子景点），用于去重 */
-  const have=[];
-  for(const d of DATA){
-    have.push(normName(d.name));
-    (d.children||[]).forEach(c=>have.push(normName(c.name)));
-  }
-  const haveSet=new Set(have);
-  const dupHit=nn=>haveSet.has(nn)||have.some(h=>(h.includes(nn)||nn.includes(h))&&Math.abs(h.length-nn.length)<=6&&Math.min(h.length,nn.length)>=4);
-  let n=0;
-  for(const r of window.EXTRA_GB){
-    if(!r||!r.name||!isFinite(r.lat)||!isFinite(r.lng))continue;
-    const nn=normName(r.name);
-    if(dupHit(nn))continue;
-    DATA.push({id:"gx"+(++n),cat:"gb",batch:+r.batch||0,lite:true,name:r.name,prov:r.prov||"",city:r.city||r.prov||"",lat:+r.lat,lng:+r.lng,
-      rating:batchName(+r.batch||0)+"国保"+(r.type?(" · "+r.type):""),stars:2,
-      price:r.price||"以现场为准",hours:r.hours||"以现场为准",wiki:r.wiki||r.name,intro:r.intro||(r.type?("类型："+r.type+"。"):"全国重点文物保护单位。")});
-  }
-}
-
-/* 合并可选的全量博物馆数据（window.EXTRA_MUS 由 museums_full.js 提供） */
-if(typeof window!=="undefined"&&Array.isArray(window.EXTRA_MUS)){
-  const normM=s=>String(s).replace(/[＂"""'''\s·、，,．.\-—－()（）\[\]【】]/g,"");
-  const haveM=[];
-  for(const d of DATA){haveM.push(normM(d.name));(d.children||[]).forEach(c=>haveM.push(normM(c.name)));}
-  const haveMSet=new Set(haveM);
-  const dupM=nn=>haveMSet.has(nn)||haveM.some(h=>(h.includes(nn)||nn.includes(h))&&Math.abs(h.length-nn.length)<=6&&Math.min(h.length,nn.length)>=4);
-  const levelLabel={一级:"国家一级博物馆",二级:"国家二级博物馆",美术馆:"国家重点美术馆"};
-  let nm=0;
-  for(const r of window.EXTRA_MUS){
-    if(!r||!r.name||!isFinite(r.lat)||!isFinite(r.lng))continue;
-    if(dupM(normM(r.name)))continue;
-    const lv=r.level||"一级";
-    DATA.push({id:"mx"+(++nm),cat:"mus",level:lv,lite:true,name:r.name,
-      prov:"",city:"",lat:+r.lat,lng:+r.lng,
-      rating:levelLabel[lv]||"博物馆",
-      stars:lv==="一级"?4:lv==="美术馆"?4:3,
-      price:"以现场为准",hours:"以现场为准",wiki:r.name,
-      intro:levelLabel[lv]||"博物馆",verify:r.verify||0});
-  }
-}
-
-/* 展平叶子点位（children 或自身） */
-const LEAF={}; // id -> leaf
-const PARENT={}; // leafId -> parent entry (若为子景点)
-for(const d of DATA){
-  if(d.children&&d.children.length){
-    d.children.forEach((c,i)=>{
-      const id=d.id+"c"+i;
-      LEAF[id]={...c,id,cat:d.cat,sub:d.sub,batch:d.batch,year:d.year,prov:d.prov,
-        city:c.city||d.city,rating:c.rating||d.rating,stars:c.stars||d.stars,
-        price:c.price||d.price,hours:c.hours||d.hours,intro:c.intro||d.intro,wiki:c.wiki||d.wiki};
-      PARENT[id]=d;
-    });
-  }else{LEAF[d.id]=d;}
-}
-const leafList=e=>e.children&&e.children.length?e.children.map((c,i)=>LEAF[e.id+"c"+i]):[LEAF[e.id]];
-
-/* ================= 坐标纠偏（高德底图用） ================= */
-function outOfChina(lat,lng){return lng<72.004||lng>137.8347||lat<0.8293||lat>55.8271}
-function tLat(x,y){let r=-100+2*x+3*y+0.2*y*y+0.1*x*y+0.2*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;r+=(20*Math.sin(y*Math.PI)+40*Math.sin(y/3*Math.PI))*2/3;r+=(160*Math.sin(y/12*Math.PI)+320*Math.sin(y*Math.PI/30))*2/3;return r}
-function tLng(x,y){let r=300+x+2*y+0.1*x*x+0.1*x*y+0.1*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;r+=(20*Math.sin(x*Math.PI)+40*Math.sin(x/3*Math.PI))*2/3;r+=(150*Math.sin(x/12*Math.PI)+300*Math.sin(x/30*Math.PI))*2/3;return r}
-function wgs2gcj(lat,lng){if(outOfChina(lat,lng))return[lat,lng];const a=6378245,ee=0.00669342162296594626;let dLat=tLat(lng-105,lat-35),dLng=tLng(lng-105,lat-35);const radLat=lat/180*Math.PI;let magic=Math.sin(radLat);magic=1-ee*magic*magic;const sq=Math.sqrt(magic);dLat=dLat*180/(a*(1-ee)/(magic*sq)*Math.PI);dLng=dLng*180/(a/sq*Math.cos(radLat)*Math.PI);return[lat+dLat,lng+dLng]}
-function distKm(a,b){const R=6371,d=Math.PI/180,la=(b.lat-a.lat)*d,lo=(b.lng-a.lng)*d;const h=Math.sin(la/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(lo/2)**2;return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
-const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-
-/* ================= 地图 ================= */
-const map=L.map("map").setView([34.5,108],5);
-let useGcj=false;
-const osmLayer=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"});
-const amapLayer=L.tileLayer("https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",{subdomains:"1234",maxZoom:18,attribution:"© 高德地图"});
-osmLayer.addTo(map);
-const cluster=L.markerClusterGroup({maxClusterRadius:36,disableClusteringAtZoom:9,showCoverageOnHover:false});
-map.addLayer(cluster);
-const pos=d=>useGcj?wgs2gcj(d.lat,d.lng):[d.lat,d.lng];
-
-function makeIcon(color,n,small){
-  const s=small?17:22,b=small?2:2.5;
-  const num=n?`<span style="position:absolute;top:-7px;right:-8px;background:#2b2b2b;color:#fff;font-size:10px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;transform:rotate(45deg)">${n}</span>`:"";
-  return L.divIcon({className:"",html:`<div style="position:relative;width:${s}px;height:${s}px;background:${color};border:${b}px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.4)">${num}</div>`,iconSize:[s,s],iconAnchor:[s/2,s],popupAnchor:[0,-s]});
-}
-
-/* ================= 状态 ================= */
-let activeCat="all",activeSub="all",activeBatch="all",activeMusLevel="all",query="",viewportFilter=true;
-let _geocodedToPlace=false;
-let markers={},routeLine=null,expanded={};
-let trip=store.get("trip",[]);
-trip=trip.filter(id=>LEAF[id]);
-
-function matchEntry(d){
-  if(activeCat!=="all"&&d.cat!==activeCat)return false;
-  if(activeCat==="whs"&&activeSub!=="all"&&d.sub!==activeSub)return false;
-  if(activeCat==="gb"&&activeBatch!=="all"&&String(d.batch)!==String(activeBatch))return false;
-  if(activeCat==="mus"&&activeMusLevel!=="all"&&(d.level||"一级")!==activeMusLevel)return false;
-  const q=query.trim().toLowerCase();
-  if(q&&!_geocodedToPlace){
-    const own=(d.name+(d.city||"")+(d.prov||"")+(d.intro||"")).toLowerCase().includes(q);
-    const kid=(d.children||[]).some(c=>(c.name+(c.city||"")).toLowerCase().includes(q));
-    if(!own&&!kid)return false;
-  }
-  if(viewportFilter){
-    const b=map.getBounds();
-    const inView=leafList(d).some(lf=>{const p=pos(lf);return p&&b.contains(p);});
-    if(!inView)return false;
-  }
-  return true;
-}
-const visible=()=>DATA.filter(matchEntry);
-
-/* ================= 标记 ================= */
-function renderMarkers(){
-  cluster.clearLayers();markers={};
-  for(const d of visible()){
-    const leaves=leafList(d),isChild=leaves.length>1||(d.children&&d.children.length);
-    for(const lf of leaves){
-      const i=trip.indexOf(lf.id);
-      const m=L.marker(pos(lf),{icon:makeIcon(colorOf(lf),i>=0?i+1:0,!!PARENT[lf.id])});
-      const tipName=PARENT[lf.id]?`${PARENT[lf.id].name} · ${lf.name}`:lf.name;
-      m.bindTooltip(tipName,{direction:"top",offset:[0,-24],className:"map-tip"});
-      m.on("click",()=>focusLeaf(lf.id));
-      cluster.addLayer(m);markers[lf.id]=m;
-    }
-  }
-  drawRoute();
-}
-
-/* ================= 列表 ================= */
-function starHtml(n){return `<span class="stars">${"★".repeat(n)}${"☆".repeat(Math.max(0,5-n))}</span>`}
-function renderList(){
-  const v=visible();
-  const leafCount=v.reduce((s,d)=>s+leafList(d).length,0);
-  $("#count").textContent=`${v.length} 个条目 · ${leafCount} 个地图点位`;
-  $("#list").innerHTML=v.map(d=>{
-    const kids=d.children||[];
-    const sub=d.cat==="whs"?`<span class="badge" style="background:${colorOf(d)}">${d.sub==="双重"?"双重遗产":d.sub+"遗产"}${d.year?" "+d.year:""}</span>`
-            :d.cat==="gb"?`<span class="badge" style="background:${CAT.gb.hex}">${batchName(d.batch)}</span>`
-            :d.level==="美术馆"?`<span class="badge" style="background:#9b59b6">美术馆</span>`:d.level==="二级"?`<span class="badge" style="background:#5c8fd6">二级馆</span>`:`<span class="badge" style="background:${CAT.mus.hex}">一级馆</span>`;
-    let html=`<div class="item ${expanded[d.id]?"active":""}" id="it${d.id}" onclick="clickEntry('${d.id}')">
-      <span class="dot" style="background:${colorOf(d)}"></span>
-      <div style="flex:1">
-        <div class="t">${d.name}${sub}</div>
-        <div class="s">${d.prov||""} ${d.city||""} · ${d.rating}</div>
-        <div class="s">${starHtml(d.stars)} · ${d.price}</div>
-        ${kids.length?`<div class="expander">${expanded[d.id]?"▾":"▸"} ${kids.length} 个子景点</div>`:""}
-      </div></div>`;
-    if(kids.length&&expanded[d.id]){
-      html+=kids.map((c,i)=>{
-        const lf=LEAF[d.id+"c"+i];
-        return `<div class="childitem" onclick="focusLeaf('${lf.id}')">
-          <div class="t">└ ${c.name}</div><div class="s">${lf.city||""} · ${lf.price||""}</div></div>`;
-      }).join("");
-    }
-    return html;
-  }).join("")||`<div style="padding:30px;text-align:center;color:#aaa;font-size:13px">没有匹配的目的地</div>`;
-}
-
-function renderSubchips(){
-  const box=$("#subchips");
-  if(activeCat==="whs"){
-    const opts=[["all","全部类型"],["文化","文化遗产"],["自然","自然遗产"],["双重","双重遗产"]];
-    box.innerHTML=opts.map(([v,t])=>`<span class="subchip ${activeSub===v?"on":""}" onclick="setSub('${v}')">${t}</span>`).join("");
-    box.style.display="flex";
-  }else if(activeCat==="gb"){
-    const batches=[...new Set(DATA.filter(d=>d.cat==="gb").map(d=>d.batch))].sort((a,b)=>a-b);
-    box.innerHTML=`<span class="subchip ${activeBatch==="all"?"on":""}" onclick="setBatch('all')">全部批次</span>`+
-      batches.map(b=>`<span class="subchip ${String(activeBatch)===String(b)?"on":""}" onclick="setBatch('${b}')">${batchName(b)}</span>`).join("");
-    box.style.display="flex";
-  }else if(activeCat==="mus"){
-    const opts=[["all","全部等级"],["一级","一级博物馆"],["二级","二级博物馆"],["美术馆","重点美术馆"]];
-    box.innerHTML=opts.map(([v,t])=>`<span class="subchip ${activeMusLevel===v?"on":""}" onclick="setMusLevel('${v}')">${t}</span>`).join("");
-    box.style.display="flex";
-  }else{box.style.display="none"}
-}
-function setSub(v){activeSub=v;renderSubchips();renderList();renderMarkers()}
-function setBatch(v){activeBatch=v;renderSubchips();renderList();renderMarkers()}
-function setMusLevel(v){activeMusLevel=v;renderSubchips();renderList();renderMarkers()}
-
-/* ================= 交互 ================= */
-function highlight(id,scroll=true){
-  document.querySelectorAll(".item.active").forEach(e=>e.classList.remove("active"));
-  const el=$("#it"+id);if(el){el.classList.add("active");if(scroll)el.scrollIntoView({block:"nearest",behavior:"smooth"})}
-}
-function clickEntry(id){
-  const d=DATA.find(x=>x.id===id);if(!d)return;
-  if(d.children&&d.children.length){
-    expanded[id]=!expanded[id];renderList();highlight(id,false);
-    const pts=leafList(d).map(lf=>pos(lf));
-    map.flyToBounds(L.latLngBounds(pts).pad(0.25),{duration:.8,maxZoom:11});
-    openDetail(id);
-  }else{focusLeaf(id)}
-}
-function focusLeaf(id){
-  const lf=LEAF[id];if(!lf)return;
-  map.flyTo(pos(lf),Math.max(map.getZoom(),11),{duration:.8});
-  highlight(PARENT[id]?PARENT[id].id:id,true);
-  openDetail(id);
-}
-
-/* ================= 详情卡片 ================= */
-const imgCache={};
-function openDetail(id){
-  const d=LEAF[id]||DATA.find(x=>x.id===id);if(!d)return;
-  const parent=PARENT[id],c=colorOf(d);
-  const isParent=!LEAF[id]&&d.children&&d.children.length;
-  const inTrip=trip.includes(id);
-  const tags=`<span class="tag" style="background:${c}">${d.cat==="whs"?(d.sub==="双重"?"文化+自然双重遗产":"世界"+d.sub+"遗产"):CAT[d.cat].label}</span><span class="tag" style="background:#777">${d.rating}</span>`;
-  let body;
-  if(isParent){
-    body=`${tags}
-      <div class="intro">${d.intro}</div>
-      <div style="font-size:12px;color:#888;margin-top:10px;font-weight:700">子景点（点击定位）</div>
-      ${d.children.map((k,i)=>`<div class="kidlink" onclick="focusLeaf('${d.id}c${i}')"><span>${k.name}</span><span style="color:#999">${k.price||""}</span></div>`).join("")}`;
-  }else{
-    body=`${tags}
-      <div class="row"><span class="k">💰 票价</span><span>${d.price}</span></div>
-      <div class="row"><span class="k">🕐 开放时间</span><span>${d.hours}</span></div>
-      <div class="intro">${d.intro}</div>
-      <div class="btns">
-        <button class="add ${inTrip?"in":""}" onclick="toggleTrip('${d.id}')">${inTrip?"✓ 已在行程·移除":"➕ 加入行程"}</button>
-        <a href="https://uri.amap.com/marker?position=${d.lng},${d.lat}&name=${encodeURIComponent(d.name)}" target="_blank">高德导航</a>
-        <a href="https://zh.wikipedia.org/wiki/${encodeURIComponent(d.wiki||d.name)}" target="_blank">百科</a>
-      </div>`;
-  }
-  $("#detail").style.display="block";
-  $("#detail").innerHTML=`
-    <div class="img" id="dimg" style="background:linear-gradient(135deg,${c}cc,${c}55)">${d.cat==="mus"?"🖼️":d.cat==="gb"?"🏛️":d.sub==="自然"?"🏞️":"🏯"}
-      <button class="close" onclick="document.getElementById('detail').style.display='none'">✕</button></div>
-    <div class="body">
-      <h2>${d.name}</h2>
-      <div class="meta">${parent?("属于："+parent.name+"　"):""}${d.prov||""} · ${d.city||""}　${starHtml(d.stars)}</div>
-      ${body}
-      ${d.verify?'<div style="font-size:11px;color:#9a6200;margin-top:8px;background:#fffbe8;border:1px solid #f0d580;border-radius:6px;padding:5px 9px">⚠️ 坐标经自动地理编码获取，位置可能有偏差，建议出行前核实</div>':""}
-      <div style="font-size:10.5px;color:#bbb;margin-top:10px">票价与时间为参考值，出行前请以官方公告为准</div>
-    </div>`;
-  loadImg(d);
-}
-async function loadImg(d){
-  const key=d.wiki||d.name;
-  try{
-    let img=imgCache[key];
-    if(img===undefined){
-      img=null;
-
-      // 1. Wikidata P18 → Special:FilePath（代表图，通常为建筑外观）
-      try{
-        const wdR=await fetch(
-          `https://www.wikidata.org/w/api.php?action=wbgetentities&sites=zhwiki&titles=${encodeURIComponent(key)}&props=claims&format=json&origin=*`,
-          {signal:AbortSignal.timeout(7000)});
-        const wdJ=await wdR.json();
-        const entity=Object.values(wdJ.entities||{})[0];
-        if(entity&&!entity.missing&&entity.claims?.P18){
-          const fname=entity.claims.P18[0].mainsnak.datavalue.value.replace(/ /g,'_');
-          img=`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fname)}?width=640`;
-        }
-      }catch(e){}
-
-      // 2. Wikimedia Commons 关键词搜索（名称直接搜，Commons以英文索引为主）
-      if(!img){
-        for(const suf of ['',' building',' exterior',' view']){
-          try{
-            const r=await fetch(
-              `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(key+suf)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`,
-              {signal:AbortSignal.timeout(7000)});
-            const j=await r.json();
-            for(const p of Object.values(j.query?.pages||{})){
-              const tu=p?.imageinfo?.[0]?.thumburl;
-              if(tu&&/\.(jpg|jpeg|png|webp)/i.test(tu)){img=tu;break;}
-            }
-          }catch(e){}
-          if(img)break;
-        }
-      }
-
-      // 3. Wikipedia zh pageimages 最终兜底
-      if(!img){
-        try{
-          const r=await fetch(
-            `https://zh.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(key)}&prop=pageimages&pithumbsize=640&format=json&origin=*&redirects=1`,
-            {signal:AbortSignal.timeout(7000)});
-          const j=await r.json();
-          img=Object.values(j.query?.pages||{})[0]?.thumbnail?.source||null;
-        }catch(e){}
-      }
-
-      imgCache[key]=img;
-    }
-    const el=$("#dimg");
-    if(img&&el){
-      el.style.backgroundImage=`url('${img}')`;
-      el.style.backgroundSize="cover";
-      el.style.backgroundPosition="center";
-      el.childNodes[0].textContent="";
-    }
-  }catch(e){/* 离线时保留占位 */}
-}
-
-/* ================= 行程 ================= */
-function toggleTrip(id){
-  const i=trip.indexOf(id);
-  if(i>=0)trip.splice(i,1);else trip.push(id);
-  store.set("trip",trip);
-  renderTrip();renderMarkers();
-  openDetail(id);
-}
-function moveStop(i,dir){
-  const j=i+dir;if(j<0||j>=trip.length)return;
-  [trip[i],trip[j]]=[trip[j],trip[i]];
-  store.set("trip",trip);renderTrip();renderMarkers();
-}
-function renderTrip(){
-  const box=$("#tripList");
-  if(!trip.length){box.innerHTML=`<span style="font-size:12px;color:#aaa">在详情卡片点「加入行程」，按顺序连线规划路线</span>`;$("#tripInfo").textContent="";$("#tripClear").style.display="none";return}
-  box.innerHTML=trip.map((id,i)=>{
-    const d=LEAF[id];
-    return `<span class="stop"><span class="n">${i+1}</span>${d.name}
-      <button title="前移" onclick="moveStop(${i},-1)">‹</button><button title="后移" onclick="moveStop(${i},1)">›</button><button title="移除" onclick="toggleTrip('${id}')">✕</button></span>`;
-  }).join("");
-  let total=0;
-  for(let i=1;i<trip.length;i++)total+=distKm(LEAF[trip[i-1]],LEAF[trip[i]]);
-  $("#tripInfo").textContent=trip.length>1?`${trip.length}站 · 直线约 ${Math.round(total)} km`:`${trip.length}站`;
-  $("#tripClear").style.display="inline";
-}
-function drawRoute(){
-  if(routeLine){map.removeLayer(routeLine);routeLine=null}
-  if(trip.length>1)routeLine=L.polyline(trip.map(id=>pos(LEAF[id])),{color:"#2b2b2b",weight:2.5,dashArray:"6 8",opacity:.75}).addTo(map);
-}
-
-/* ================= 事件 ================= */
-document.querySelectorAll("#chips .chip").forEach(ch=>ch.onclick=()=>{
-  document.querySelectorAll("#chips .chip").forEach(c=>c.classList.remove("on"));
-  ch.classList.add("on");activeCat=ch.dataset.cat;activeSub="all";activeBatch="all";activeMusLevel="all";
-  renderSubchips();renderList();renderMarkers();
-});
-let _searchTimer=null,_renderTimer=null;
-$("#search").oninput=e=>{
-  _geocodedToPlace=false;            // 新输入时重置地理编码模式
-  query=e.target.value;
-  clearTimeout(_renderTimer);
-  clearTimeout(_searchTimer);
-  // 防抖：停止输入 150ms 后再渲染列表和标记，避免每个字符都触发全量重渲染
-  _renderTimer=setTimeout(()=>{renderList();renderMarkers();},150);
-  const q=query.trim();
-  if(q.length<2)return;
-  // 在输入框显示"定位中"提示
-  $("#search").style.borderColor="#f0a020";
-  _searchTimer=setTimeout(()=>{
-    // 始终尝试地理编码定位
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q+' 中国')}&format=json&limit=1`)
-      .then(r=>r.json()).then(res=>{
-        $("#search").style.borderColor="";
-        if(res.length){
-          // 找到地点：定位到该地，取消名称筛选，由可视区域过滤接管
-          _geocodedToPlace=true;
-          renderList();
-          renderMarkers();   // 立即清除名称筛选的旧标记，给用户即时反馈
-          const bb=res[0].boundingbox;
-          if(bb)map.flyToBounds([[+bb[0],+bb[2]],[+bb[1],+bb[3]]],{duration:.8,padding:[60,60],maxZoom:10});
-          else map.flyTo([+res[0].lat,+res[0].lon],9,{duration:.8});
-        }else{
-          // 未找到地点：退回名称筛选模式，定位到匹配景点
-          const v=visible();
-          if(v.length>0&&v.length<=300){
-            const pts=v.flatMap(d=>leafList(d)).map(lf=>pos(lf)).filter(Boolean);
-            if(pts.length===1)map.flyTo(pts[0],Math.max(map.getZoom(),12),{duration:.8});
-            else if(pts.length>1)map.flyToBounds(L.latLngBounds(pts).pad(0.3),{duration:.8,maxZoom:13});
-          }
-        }
-      }).catch(()=>{$("#search").style.borderColor="";});
-  },350);
-};
-$("#vfToggle").onchange=e=>{viewportFilter=e.target.checked;renderList();};
-map.on("moveend",()=>{if(viewportFilter){renderList();renderMarkers();}});
-$("#tripClear").onclick=()=>{trip=[];store.set("trip",trip);renderTrip();renderMarkers()};
-$("#tileToggle").onclick=()=>{
-  useGcj=!useGcj;
-  if(useGcj){map.removeLayer(osmLayer);amapLayer.addTo(map);$("#tileToggle").textContent="底图：高德地图 ⇄"}
-  else{map.removeLayer(amapLayer);osmLayer.addTo(map);$("#tileToggle").textContent="底图：OpenStreetMap ⇄"}
-  renderMarkers();
-};
-
-renderSubchips();renderList();renderMarkers();renderTrip();
-</script>
 </body>
 </html>

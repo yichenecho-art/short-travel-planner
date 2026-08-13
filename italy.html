@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意大利世界遗产地图</title>
+<link rel="stylesheet" href="lib/leaflet.min.css">
+<link rel="stylesheet" href="lib/MarkerCluster.min.css">
+<link rel="stylesheet" href="lib/MarkerCluster.Default.min.css">
+<script src="lib/leaflet.min.js"></script>
+<script src="lib/leaflet.markercluster.min.js"></script>
+<style>
+:root{
+  --cul:#c0392b; --nat:#27ae60; --mix:#8e44ad;
+  --bg:#f6f5f2; --panel:#ffffff; --ink:#2b2b2b; --muted:#8a8a8a; --line:#e8e6e1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);height:100vh;overflow:hidden}
+#app{display:flex;height:100vh}
+/* ---------- 侧栏 ---------- */
+#side{width:380px;min-width:320px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:1000}
+#side header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+#side h1{font-size:17px;font-weight:700}
+#side h1 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#search{width:100%;margin-top:10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--bg)}
+#search:focus{border-color:#bbb}
+#chips{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.chip{padding:5px 11px;border-radius:99px;font-size:12px;cursor:pointer;border:1px solid var(--line);background:#fff;user-select:none;transition:.15s}
+.chip.on{color:#fff;border-color:transparent}
+.chip[data-sub="all"].on{background:var(--ink)}
+.chip[data-sub="文化"].on{background:var(--cul)}
+.chip[data-sub="自然"].on{background:var(--nat)}
+.chip[data-sub="双重"].on{background:var(--mix)}
+#count{font-size:11px;color:var(--muted);margin-top:8px}
+.map-tip{background:rgba(30,30,30,.88);color:#fff;border:none;border-radius:5px;font-size:12px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.map-tip::before{display:none}
+#vfLabel{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:6px;cursor:pointer;user-select:none}
+#vfLabel input{cursor:pointer;accent-color:var(--cul)}
+#list{flex:1;overflow-y:auto}
+.item{padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+.item:hover{background:#faf9f6}
+.item.active{background:#f3f1ea}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.item .t{font-size:14px;font-weight:600;line-height:1.4}
+.item .s{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+.badge{font-size:10px;padding:1px 6px;border-radius:4px;color:#fff;margin-left:6px;vertical-align:1px;white-space:nowrap}
+.stars{color:#e8a33d;font-size:11px;letter-spacing:1px}
+.expander{font-size:11px;color:#3a6fd8;margin-top:3px;user-select:none}
+.childitem{padding:7px 16px 7px 40px;border-bottom:1px dashed var(--line);cursor:pointer;background:#fcfbf9}
+.childitem:hover{background:#f5f3ee}
+.childitem .t{font-size:12.5px;font-weight:500}
+.childitem .s{font-size:11px;color:var(--muted)}
+/* ---------- 地图 ---------- */
+#mapwrap{flex:1;position:relative}
+#map{height:100%}
+/* ---------- 详情卡片 ---------- */
+#detail{position:absolute;top:10px;left:10px;z-index:900;width:335px;max-height:calc(100% - 70px);overflow-y:auto;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:none}
+#detail .img{height:170px;background:#ddd center/cover no-repeat;border-radius:14px 14px 0 0;position:relative;display:flex;align-items:center;justify-content:center;font-size:48px}
+#detail .close{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);color:#fff;border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1}
+#detail .body{padding:14px 16px 16px}
+#detail h2{font-size:16.5px;line-height:1.4}
+#detail .meta{font-size:12px;color:var(--muted);margin:4px 0 8px}
+#detail .tag{display:inline-block;font-size:11px;color:#fff;padding:2px 8px;border-radius:5px;margin:0 6px 4px 0}
+#detail .row{display:flex;font-size:13px;margin-top:7px;line-height:1.5}
+#detail .row .k{width:80px;color:var(--muted);flex-shrink:0}
+#detail .intro{font-size:13px;line-height:1.7;margin-top:10px;color:#444}
+#detail .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+#detail .btns a,#detail .btns button{flex:1;min-width:80px;text-align:center;font-size:12px;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
+#detail .btns .add{background:var(--ink);color:#fff;border-color:var(--ink)}
+#detail .btns .add.in{background:#888;border-color:#888}
+.kidlink{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;margin-top:6px;cursor:pointer}
+.kidlink:hover{background:#f7f5f0}
+/* ---------- 行程栏 ---------- */
+#trip{position:absolute;bottom:0;left:0;right:0;z-index:900;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#trip .label{font-size:12.5px;font-weight:700;flex-shrink:0}
+#tripList{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:120px}
+.stop{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 8px 3px 4px;font-size:12px}
+.stop .n{background:var(--ink);color:#fff;width:17px;height:17px;border-radius:50%;font-size:10.5px;display:flex;align-items:center;justify-content:center}
+.stop button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0 2px}
+#tripInfo{font-size:11.5px;color:var(--muted);flex-shrink:0}
+#tripClear{font-size:11.5px;border:none;background:none;color:#b04a3e;cursor:pointer;flex-shrink:0}
+.leaflet-popup-content{margin:10px 14px;font-size:13px}
+.pop-t{font-weight:700;font-size:14px;cursor:pointer}
+.pop-s{color:#888;font-size:11.5px;margin-top:2px}
+/* ---------- 小徽章 ---------- */
+.badge-cul{background:var(--cul)}
+.badge-nat{background:var(--nat)}
+.badge-mix{background:var(--mix)}
+@media (max-width:760px){
+  #app{flex-direction:column}
+  #side{width:100%;height:44%;min-width:0;border-right:none;border-bottom:1px solid var(--line)}
+  #detail{width:calc(100% - 20px)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header>
+      <h1>意大利世界遗产<small>61 项 · 全球最多</small></h1>
+      <input id="search" placeholder="搜索遗产名称 / 城市 / 大区…">
+      <div id="chips">
+        <span class="chip on" data-sub="all">全部</span>
+        <span class="chip" data-sub="文化">文化遗产</span>
+        <span class="chip" data-sub="自然">自然遗产</span>
+        <span class="chip" data-sub="双重">双重遗产</span>
+      </div>
+      <div id="count"></div>
+      <label id="vfLabel"><input type="checkbox" id="vfToggle" checked> 仅显示地图可视区域内的遗产</label>
+    </header>
+    <div id="list"></div>
+  </aside>
+  <div id="mapwrap">
+    <div id="map"></div>
+    <div id="detail"></div>
+    <div id="trip">
+      <span class="label">🧭 行程清单</span>
+      <div id="tripList"></div>
+      <span id="tripInfo"></span>
+      <button id="tripClear" style="display:none">清空</button>
+    </div>
+  </div>
+</div>
+
+<script src="italy.js"></script>
+<script>
+/* ================= 颜色 ================= */
+const SUBHEX={"文化":"#c0392b","自然":"#27ae60","双重":"#8e44ad"};
+const SUBLABEL={"文化":"世界文化遗产","自然":"世界自然遗产","双重":"世界双重遗产"};
+const $=s=>document.querySelector(s);
+const colorOf=e=>SUBHEX[e.sub]||"#888";
+
+/* ================= 数据扁平化 ================= */
+const DATA=ITALY_DATA;
+const LEAF={};
+const PARENT={};
+for(const d of DATA){
+  if(d.children&&d.children.length){
+    d.children.forEach((c,i)=>{
+      const id=d.id+"c"+i;
+      LEAF[id]={...c,id,cat:d.cat,sub:d.sub,year:d.year,region:d.region,
+        rating:c.rating||d.rating,stars:c.stars||d.stars,
+        price:c.price||d.price,hours:c.hours||d.hours,
+        intro:c.intro||d.intro,wiki:c.wiki||d.wiki};
+      PARENT[id]=d;
+    });
+  }else{LEAF[d.id]=d;}
+}
+const leafList=e=>e.children&&e.children.length?e.children.map((c,i)=>LEAF[e.id+"c"+i]):[LEAF[e.id]];
+
+/* ================= 工具 ================= */
+function distKm(a,b){const R=6371,d=Math.PI/180,la=(b.lat-a.lat)*d,lo=(b.lng-a.lng)*d;const h=Math.sin(la/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(lo/2)**2;return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ================= 地图（WGS84，无需纠偏） ================= */
+const map=L.map("map").setView([42.5,12.5],6);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const cluster=L.markerClusterGroup({maxClusterRadius:36,disableClusteringAtZoom:9,showCoverageOnHover:false});
+map.addLayer(cluster);
+const pos=d=>[d.lat,d.lng];
+
+function makeIcon(color,n,small){
+  const s=small?17:22,b=small?2:2.5;
+  const num=n?`<span style="position:absolute;top:-7px;right:-8px;background:#2b2b2b;color:#fff;font-size:10px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;transform:rotate(45deg)">${n}</span>`:"";
+  return L.divIcon({className:"",html:`<div style="position:relative;width:${s}px;height:${s}px;background:${color};border:${b}px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.4)">${num}</div>`,iconSize:[s,s],iconAnchor:[s/2,s],popupAnchor:[0,-s]});
+}
+
+/* ================= 状态 ================= */
+let activeSub="all",query="",viewportFilter=true;
+let _geocodedToPlace=false;
+let markers={},routeLine=null,expanded={};
+let trip=store.get("italy_trip",[]);
+trip=trip.filter(id=>LEAF[id]);
+
+function matchEntry(d){
+  if(activeSub!=="all"&&d.sub!==activeSub)return false;
+  const q=query.trim().toLowerCase();
+  if(q&&!_geocodedToPlace){
+    const own=(d.name+(d.city||"")+(d.region||"")+(d.intro||"")).toLowerCase().includes(q);
+    const kid=(d.children||[]).some(c=>(c.name+(c.city||"")).toLowerCase().includes(q));
+    if(!own&&!kid)return false;
+  }
+  if(viewportFilter){
+    const b=map.getBounds();
+    const inView=leafList(d).some(lf=>{const p=pos(lf);return p&&b.contains(p);});
+    if(!inView)return false;
+  }
+  return true;
+}
+const visible=()=>DATA.filter(matchEntry);
+
+/* ================= 标记 ================= */
+function renderMarkers(){
+  cluster.clearLayers();markers={};
+  for(const d of visible()){
+    const leaves=leafList(d);
+    for(const lf of leaves){
+      const i=trip.indexOf(lf.id);
+      const m=L.marker(pos(lf),{icon:makeIcon(colorOf(lf),i>=0?i+1:0,!!PARENT[lf.id])});
+      const tipName=PARENT[lf.id]?`${PARENT[lf.id].name} · ${lf.name}`:lf.name;
+      m.bindTooltip(tipName,{direction:"top",offset:[0,-24],className:"map-tip"});
+      m.on("click",()=>focusLeaf(lf.id));
+      cluster.addLayer(m);markers[lf.id]=m;
+    }
+  }
+  drawRoute();
+}
+
+/* ================= 列表 ================= */
+function starHtml(n){return `<span class="stars">${"★".repeat(n)}${"☆".repeat(Math.max(0,5-n))}</span>`}
+
+function renderList(){
+  const v=visible();
+  const leafCount=v.reduce((s,d)=>s+leafList(d).length,0);
+  $("#count").textContent=`${v.length} 项遗产 · ${leafCount} 个地图点位`;
+  const badgeCls={"文化":"badge-cul","自然":"badge-nat","双重":"badge-mix"};
+  $("#list").innerHTML=v.map(d=>{
+    const kids=d.children||[];
+    const bc=badgeCls[d.sub]||"";
+    const sub=`<span class="badge ${bc}">${SUBLABEL[d.sub]||d.sub}${d.year?" "+d.year:""}</span>`;
+    let html=`<div class="item ${expanded[d.id]?"active":""}" id="it${d.id}" onclick="clickEntry('${d.id}')">
+      <span class="dot" style="background:${colorOf(d)}"></span>
+      <div style="flex:1">
+        <div class="t">${d.name}${sub}</div>
+        <div class="s">${d.region||""} · ${d.city||""}</div>
+        <div class="s">${starHtml(d.stars)} · ${d.price}</div>
+        ${kids.length?`<div class="expander">${expanded[d.id]?"▾":"▸"} ${kids.length} 个子景点</div>`:""}
+      </div></div>`;
+    if(kids.length&&expanded[d.id]){
+      html+=kids.map((c,i)=>{
+        const lf=LEAF[d.id+"c"+i];
+        return `<div class="childitem" onclick="focusLeaf('${lf.id}')">
+          <div class="t">└ ${c.name}</div><div class="s">${lf.city||""} · ${lf.price||""}</div></div>`;
+      }).join("");
+    }
+    return html;
+  }).join("")||`<div style="padding:30px;text-align:center;color:#aaa;font-size:13px">没有匹配的遗产</div>`;
+}
+
+/* ================= 交互 ================= */
+function highlight(id,scroll=true){
+  document.querySelectorAll(".item.active").forEach(e=>e.classList.remove("active"));
+  const el=$("#it"+id);if(el){el.classList.add("active");if(scroll)el.scrollIntoView({block:"nearest",behavior:"smooth"})}
+}
+function clickEntry(id){
+  const d=DATA.find(x=>x.id===id);if(!d)return;
+  if(d.children&&d.children.length){
+    expanded[id]=!expanded[id];renderList();highlight(id,false);
+    const pts=leafList(d).map(lf=>pos(lf));
+    map.flyToBounds(L.latLngBounds(pts).pad(0.25),{duration:.8,maxZoom:11});
+    openDetail(id);
+  }else{focusLeaf(id)}
+}
+function focusLeaf(id){
+  const lf=LEAF[id];if(!lf)return;
+  map.flyTo(pos(lf),Math.max(map.getZoom(),11),{duration:.8});
+  highlight(PARENT[id]?PARENT[id].id:id,true);
+  openDetail(id);
+}
+
+/* ================= 详情卡片 ================= */
+const imgCache={};
+function openDetail(id){
+  const d=LEAF[id]||DATA.find(x=>x.id===id);if(!d)return;
+  const parent=PARENT[id],c=colorOf(d);
+  const isParent=!LEAF[id]&&d.children&&d.children.length;
+  const inTrip=trip.includes(id);
+  const tags=`<span class="tag" style="background:${c}">${SUBLABEL[d.sub]||d.sub}</span><span class="tag" style="background:#777">${d.year?"列入"+d.year+"年":""}</span>`;
+  let body;
+  if(isParent){
+    body=`${tags}
+      <div class="intro">${d.intro}</div>
+      <div style="font-size:12px;color:#888;margin-top:10px;font-weight:700">子景点（点击定位）</div>
+      ${d.children.map((k,i)=>`<div class="kidlink" onclick="focusLeaf('${d.id}c${i}')"><span>${k.name}</span><span style="color:#999">${k.price||""}</span></div>`).join("")}`;
+  }else{
+    body=`${tags}
+      <div class="row"><span class="k">💰 票价</span><span>${d.price}</span></div>
+      <div class="row"><span class="k">🕐 开放时间</span><span>${d.hours}</span></div>
+      <div class="row"><span class="k">📍 位置</span><span>${d.region||""}${d.city?(" · "+d.city):""}</span></div>
+      <div class="intro">${d.intro}</div>
+      <div class="btns">
+        <button class="add ${inTrip?"in":""}" onclick="toggleTrip('${d.id}')">${inTrip?"✓ 已在行程·移除":"➕ 加入行程"}</button>
+        <a href="https://maps.google.com/maps?q=${d.lat},${d.lng}&z=15" target="_blank">Google Maps</a>
+        <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(d.wiki||d.name)}" target="_blank">Wikipedia</a>
+      </div>`;
+  }
+  const emoji=d.sub==="自然"?"🏞️":d.sub==="双重"?"🌍":"🏛️";
+  $("#detail").style.display="block";
+  $("#detail").innerHTML=`
+    <div class="img" id="dimg" style="background:linear-gradient(135deg,${c}cc,${c}55)">${emoji}
+      <button class="close" onclick="document.getElementById('detail').style.display='none'">✕</button></div>
+    <div class="body">
+      <h2>${d.name}</h2>
+      <div class="meta">${parent?("所属："+parent.name+"　"):""}${d.region||""}${d.city?(" · "+d.city):""}　${starHtml(d.stars)}</div>
+      ${body}
+      <div style="font-size:10.5px;color:#bbb;margin-top:10px">票价与时间为参考值，出行前请以官方公告为准</div>
+    </div>`;
+  loadImg(d);
+}
+
+async function loadImg(d){
+  const key=d.wiki||d.name;
+  try{
+    let img=imgCache[key];
+    if(img===undefined){
+      img=null;
+      /* 1. Wikidata P18（英文 wiki 条目） */
+      try{
+        const wdR=await fetch(
+          `https://www.wikidata.org/w/api.php?action=wbgetentities&sites=enwiki&titles=${encodeURIComponent(key)}&props=claims&format=json&origin=*`,
+          {signal:AbortSignal.timeout(7000)});
+        const wdJ=await wdR.json();
+        const entity=Object.values(wdJ.entities||{})[0];
+        if(entity&&!entity.missing&&entity.claims?.P18){
+          const fname=entity.claims.P18[0].mainsnak.datavalue.value.replace(/ /g,'_');
+          img=`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fname)}?width=640`;
+        }
+      }catch(e){}
+      /* 2. Wikimedia Commons 关键词搜索 */
+      if(!img){
+        for(const suf of['',' building',' exterior',' view']){
+          try{
+            const r=await fetch(
+              `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(key+suf)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`,
+              {signal:AbortSignal.timeout(7000)});
+            const j=await r.json();
+            for(const p of Object.values(j.query?.pages||{})){
+              const tu=p?.imageinfo?.[0]?.thumburl;
+              if(tu&&/\.(jpg|jpeg|png|webp)/i.test(tu)){img=tu;break;}
+            }
+          }catch(e){}
+          if(img)break;
+        }
+      }
+      /* 3. English Wikipedia pageimages 兜底 */
+      if(!img){
+        try{
+          const r=await fetch(
+            `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(key)}&prop=pageimages&pithumbsize=640&format=json&origin=*&redirects=1`,
+            {signal:AbortSignal.timeout(7000)});
+          const j=await r.json();
+          img=Object.values(j.query?.pages||{})[0]?.thumbnail?.source||null;
+        }catch(e){}
+      }
+      imgCache[key]=img;
+    }
+    const el=$("#dimg");
+    if(img&&el){
+      el.style.backgroundImage=`url('${img}')`;
+      el.style.backgroundSize="cover";
+      el.style.backgroundPosition="center";
+      el.childNodes[0].textContent="";
+    }
+  }catch(e){}
+}
+
+/* ================= 行程 ================= */
+function toggleTrip(id){
+  const i=trip.indexOf(id);
+  if(i>=0)trip.splice(i,1);else trip.push(id);
+  store.set("italy_trip",trip);
+  renderTrip();renderMarkers();
+  openDetail(id);
+}
+function moveStop(i,dir){
+  const j=i+dir;if(j<0||j>=trip.length)return;
+  [trip[i],trip[j]]=[trip[j],trip[i]];
+  store.set("italy_trip",trip);renderTrip();renderMarkers();
+}
+function renderTrip(){
+  const box=$("#tripList");
+  if(!trip.length){box.innerHTML=`<span style="font-size:12px;color:#aaa">在详情卡片点「加入行程」，按顺序连线规划路线</span>`;$("#tripInfo").textContent="";$("#tripClear").style.display="none";return}
+  box.innerHTML=trip.map((id,i)=>{
+    const d=LEAF[id];
+    return `<span class="stop"><span class="n">${i+1}</span>${d.name}
+      <button title="前移" onclick="moveStop(${i},-1)">‹</button><button title="后移" onclick="moveStop(${i},1)">›</button><button title="移除" onclick="toggleTrip('${id}')">✕</button></span>`;
+  }).join("");
+  let total=0;
+  for(let i=1;i<trip.length;i++)total+=distKm(LEAF[trip[i-1]],LEAF[trip[i]]);
+  $("#tripInfo").textContent=trip.length>1?`${trip.length}站 · 直线约 ${Math.round(total)} km`:`${trip.length}站`;
+  $("#tripClear").style.display="inline";
+}
+function drawRoute(){
+  if(routeLine){map.removeLayer(routeLine);routeLine=null}
+  if(trip.length>1)routeLine=L.polyline(trip.map(id=>pos(LEAF[id])),{color:"#2b2b2b",weight:2.5,dashArray:"6 8",opacity:.75}).addTo(map);
+}
+
+/* ================= 事件 ================= */
+document.querySelectorAll("#chips .chip").forEach(ch=>ch.onclick=()=>{
+  document.querySelectorAll("#chips .chip").forEach(c=>c.classList.remove("on"));
+  ch.classList.add("on");
+  activeSub=ch.dataset.sub;
+  renderList();renderMarkers();
+});
+
+let _searchTimer=null,_renderTimer=null;
+$("#search").oninput=e=>{
+  _geocodedToPlace=false;
+  query=e.target.value;
+  clearTimeout(_renderTimer);clearTimeout(_searchTimer);
+  _renderTimer=setTimeout(()=>{renderList();renderMarkers();},150);
+  const q=query.trim();
+  if(q.length<2)return;
+  $("#search").style.borderColor="#f0a020";
+  _searchTimer=setTimeout(()=>{
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q+' 意大利')}&format=json&limit=1`)
+      .then(r=>r.json()).then(res=>{
+        $("#search").style.borderColor="";
+        if(res.length){
+          _geocodedToPlace=true;
+          renderList();renderMarkers();
+          const bb=res[0].boundingbox;
+          if(bb)map.flyToBounds([[+bb[0],+bb[2]],[+bb[1],+bb[3]]],{duration:.8,padding:[60,60],maxZoom:11});
+          else map.flyTo([+res[0].lat,+res[0].lon],10,{duration:.8});
+        }else{
+          const v=visible();
+          if(v.length>0&&v.length<=200){
+            const pts=v.flatMap(d=>leafList(d)).map(lf=>pos(lf)).filter(Boolean);
+            if(pts.length===1)map.flyTo(pts[0],Math.max(map.getZoom(),12),{duration:.8});
+            else if(pts.length>1)map.flyToBounds(L.latLngBounds(pts).pad(0.3),{duration:.8,maxZoom:13});
+          }
+        }
+      }).catch(()=>{$("#search").style.borderColor="";});
+  },350);
+};
+
+$("#vfToggle").onchange=e=>{viewportFilter=e.target.checked;renderList();};
+map.on("moveend",()=>{if(viewportFilter){renderList();renderMarkers();}});
+$("#tripClear").onclick=()=>{trip=[];store.set("italy_trip",trip);renderTrip();renderMarkers()};
+
+renderList();renderMarkers();renderTrip();
+</script>
+</body>
+</html>

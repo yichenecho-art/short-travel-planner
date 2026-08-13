@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界文化遗产地图</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; background: #1a1a2e; }
+
+  /* ── 顶栏 ── */
+  #topbar {
+    background: #16213e; color: #e0e0e0;
+    padding: 8px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.4); min-height: 46px;
+  }
+  #topbar h1 { font-size: 15px; color: #a0c4ff; white-space: nowrap; }
+  #topbar a { color: #6bd5e1; text-decoration: none; font-size: 12px; }
+  #topbar a:hover { text-decoration: underline; }
+  .sep { color: #444; }
+  #searchBox {
+    padding: 4px 10px; border-radius: 20px; border: 1px solid #334;
+    background: #0f3460; color: #ddd; font-size: 12px; width: 180px; outline: none;
+  }
+  #searchBox:focus { border-color: #a0c4ff; }
+  .filter-btn {
+    padding: 3px 10px; border-radius: 12px; border: 1px solid #444;
+    background: #0f3460; color: #ccc; cursor: pointer; font-size: 11px; transition: all .2s;
+  }
+  .filter-btn.active { background: #a0c4ff; color: #1a1a2e; border-color: #a0c4ff; font-weight: bold; }
+  .filter-btn.nat.active  { background: #6bcb77; border-color: #6bcb77; color: #111; }
+  .filter-btn.cul.active  { background: #ffb347; border-color: #ffb347; color: #111; }
+  .filter-btn.mix.active  { background: #c77dff; border-color: #c77dff; color: #111; }
+  #stats { font-size: 11px; color: #888; white-space: nowrap; margin-left: auto; }
+
+  /* ── 提示横条 ── */
+  #banner {
+    display: none; background: #0f3460; color: #a0c4ff;
+    padding: 6px 14px; font-size: 12px; align-items: center; gap: 10px;
+    border-bottom: 1px solid #1e3a5f;
+  }
+  #banner.show { display: flex; }
+  #banner span { flex: 1; }
+  #dlBtn {
+    padding: 4px 12px; background: #a0c4ff; color: #1a1a2e;
+    border: none; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: bold;
+  }
+  #dlBtn:hover { background: #7ab8ff; }
+  #bannerClose { cursor: pointer; color: #557; font-size: 16px; line-height: 1; }
+
+  /* ── 进度 ── */
+  #loadingOverlay {
+    position: absolute; inset: 0; background: rgba(26,26,46,0.93);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; color: #a0c4ff;
+  }
+  #loadingOverlay h2 { font-size: 20px; margin-bottom: 16px; }
+  #progressBar { width: 280px; height: 8px; background: #334; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+  #progressFill { height: 100%; background: #a0c4ff; width: 0%; transition: width .4s; }
+  #loadingMsg { font-size: 13px; color: #888; }
+  #errorBox { display:none; color:#ff6b6b; margin-top:12px; font-size:13px; text-align:center; max-width:320px; }
+
+  /* ── 地图 ── */
+  #map { flex: 1; }
+
+  /* ── 弹窗 ── */
+  .site-popup { min-width: 200px; }
+  .site-popup h3 { font-size: 14px; margin-bottom: 3px; color: #1a1a2e; }
+  .site-popup .en { font-size: 11px; color: #555; margin-bottom: 5px; }
+  .site-popup table { font-size: 11px; width: 100%; }
+  .site-popup td { padding: 2px 3px; }
+  .site-popup td:first-child { color: #777; white-space: nowrap; }
+  .badge { display:inline-block; padding:1px 6px; border-radius:8px; font-size:11px; font-weight:bold; }
+  .badge-N { background:#6bcb77; color:#111; }
+  .badge-C { background:#ffb347; color:#111; }
+  .badge-M { background:#c77dff; color:#111; }
+
+  /* ── 悬浮名称 ── */
+  .site-tooltip {
+    background: rgba(22, 33, 62, 0.92) !important;
+    border: 1px solid #334 !important;
+    color: #e0e0e0 !important;
+    font-size: 12px !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
+  }
+  .site-tooltip::before { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>🌍 世界遗产</h1>
+  <a href="home.html">← 首页</a>
+  <span class="sep">|</span>
+  <a href="index.html">🇨🇳 中国</a>
+  <span class="sep">|</span>
+  <a href="italy.html">🇮🇹 意大利</a>
+  <span class="sep">|</span>
+  <input id="searchBox" type="text" placeholder="搜索遗产地…" oninput="applyFilters()">
+  <button class="filter-btn active" id="btnAll" onclick="setTypeFilter('all')">全部</button>
+  <button class="filter-btn cul" id="btnC" onclick="setTypeFilter('C')">文化</button>
+  <button class="filter-btn nat" id="btnN" onclick="setTypeFilter('N')">自然</button>
+  <button class="filter-btn mix" id="btnM" onclick="setTypeFilter('M')">混合</button>
+  <span id="stats">—</span>
+</div>
+
+<!-- 首次加载后提示下载缓存 -->
+<div id="banner">
+  <span id="bannerText">✅ 数据加载完成（共 <b id="siteCount">0</b> 处）· 下载 world.js 到同一文件夹，下次打开将秒速加载</span>
+  <button id="dlBtn" onclick="downloadWorldJs()">💾 下载 world.js</button>
+  <span id="bannerClose" onclick="this.parentElement.classList.remove('show')">✕</span>
+</div>
+
+<div id="map"></div>
+
+<div id="loadingOverlay">
+  <h2 id="loadingTitle">🌍 加载遗产数据</h2>
+  <div id="progressBar"><div id="progressFill"></div></div>
+  <div id="loadingMsg">初始化…</div>
+  <div id="errorBox"></div>
+</div>
+
+<script>
+// ── 地图 ──
+const map = L.map('map', { center: [20, 10], zoom: 2, minZoom: 2 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 18
+}).addTo(map);
+
+const clusterLayer = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 40 });
+map.addLayer(clusterLayer);
+
+// ── 图标 ──
+const iconCache = {};
+function makeIcon(type) {
+  if (iconCache[type]) return iconCache[type];
+  const c = { N: '#6bcb77', C: '#ffb347', M: '#c77dff' }[type] || '#aaa';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 16 22"><path d="M8 0C3.6 0 0 3.6 0 8c0 6.3 8 14 8 14s8-7.7 8-14c0-4.4-3.6-8-8-8z" fill="${c}" stroke="#fff" stroke-width="1.2"/><circle cx="8" cy="8" r="3.5" fill="white" opacity="0.8"/></svg>`;
+  iconCache[type] = L.divIcon({ html: svg, className: '', iconSize: [16, 22], iconAnchor: [8, 22], popupAnchor: [0, -22] });
+  return iconCache[type];
+}
+
+// ── 全量数据 & 筛选 ──
+let allSites = [];
+let typeFilter = 'all';
+let allMarkerObjects = [];
+let fromCache = false;
+
+function setTypeFilter(t) {
+  typeFilter = t;
+  ['All','C','N','M'].forEach(x => document.getElementById('btn'+x).classList.remove('active'));
+  document.getElementById('btn'+(t==='all'?'All':t)).classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  clusterLayer.clearLayers();
+  let n = 0;
+  for (const obj of allMarkerObjects) {
+    const s = obj.site;
+    if ((typeFilter === 'all' || s.type === typeFilter) &&
+        (!q || s.zh.toLowerCase().includes(q) || s.en.toLowerCase().includes(q) || s.country.toLowerCase().includes(q))) {
+      clusterLayer.addLayer(obj.marker); n++;
+    }
+  }
+  document.getElementById('stats').textContent = `显示 ${n} / ${allSites.length} 处`;
+}
+
+function buildMarkers(sites) {
+  allSites = sites;
+  allMarkerObjects = [];
+  const typeNames = { C:'文化遗产', N:'自然遗产', M:'混合遗产' };
+  for (const s of sites) {
+    if (s.lat == null || s.lng == null) continue;
+    const m = L.marker([s.lat, s.lng], { icon: makeIcon(s.type) });
+    const yrStr = s.year > 0 ? s.year + ' 年' : '—';
+    const wikiUrl = s.qid ? `https://www.wikidata.org/wiki/${s.qid}` : null;
+    const tipLabel = (s.zh && s.zh !== s.en)
+      ? `${s.zh}<br><span style="opacity:.65;font-size:11px">${s.en}</span>`
+      : (s.en || s.zh);
+    m.bindTooltip(tipLabel, {
+      direction: 'top', offset: [0, -20],
+      className: 'site-tooltip', sticky: false
+    });
+    m.bindPopup(`<div class="site-popup">
+      <h3>${s.zh || s.en}</h3>
+      ${s.zh && s.zh !== s.en ? `<div class="en">${s.en}</div>` : ''}
+      <table>
+        <tr><td>类型</td><td><span class="badge badge-${s.type}">${typeNames[s.type]||s.type}</span></td></tr>
+        <tr><td>国家</td><td>${s.country}</td></tr>
+        <tr><td>列入年份</td><td>${yrStr}</td></tr>
+        <tr><td>编号</td><td>${s.id}</td></tr>
+        ${wikiUrl ? `<tr><td>资料</td><td><a href="${wikiUrl}" target="_blank">Wikidata ↗</a></td></tr>` : ''}
+      </table></div>`, { maxWidth: 280 });
+    allMarkerObjects.push({ site: s, marker: m });
+  }
+  applyFilters();
+}
+
+// ── 进度工具 ──
+function setProgress(pct, msg) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('loadingMsg').textContent = msg;
+}
+function hideOverlay() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// ── 下载 world.js ──
+function escJs(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function downloadWorldJs() {
+  const lines = allSites.map(s =>
+    `{id:'${escJs(s.id)}',zh:'${escJs(s.zh)}',en:'${escJs(s.en)}',country:'${escJs(s.country)}',lat:${s.lat??'null'},lng:${s.lng??'null'},type:'${s.type}',year:${s.year||0},qid:'${escJs(s.qid||'')}'}`
+  );
+  const js = `// UNESCO 世界遗产数据 · 由 world.html 生成 · ${new Date().toLocaleDateString('zh-CN')}\nconst WORLD_DATA=[\n${lines.join(',\n')}\n];\nif(typeof window!=='undefined')window.WORLD_DATA=WORLD_DATA;\n`;
+  const blob = new Blob([js], { type: 'text/javascript;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'world.js';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+// ── 尝试加载本地 world.js ──
+function tryLoadLocalWorldJs() {
+  return new Promise(resolve => {
+    if (window.WORLD_DATA && window.WORLD_DATA.length > 100) { resolve(true); return; }
+    const s = document.createElement('script');
+    s.src = 'world.js?v=' + Date.now();
+    s.onload = () => resolve(window.WORLD_DATA && window.WORLD_DATA.length > 100);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+    setTimeout(() => resolve(false), 3000);
+  });
+}
+
+// ── Wikidata SPARQL 获取 ──
+const SPARQL = 'https://query.wikidata.org/sparql';
+const NAT = new Set(['(vii)','(viii)','(ix)','(x)']);
+function getType(c){ const a=(c||'').split('|').map(s=>s.trim()).filter(Boolean); const n=a.some(x=>NAT.has(x)),k=a.some(x=>!NAT.has(x)&&x); return(n&&k)?'M':n?'N':'C'; }
+function parseCoord(w){ if(!w)return[null,null]; const m=w.match(/Point\(([+-]?\d+\.?\d*)\s+([+-]?\d+\.?\d*)\)/); return m?[+parseFloat(m[2]).toFixed(4),+parseFloat(m[1]).toFixed(4)]:[null,null]; }
+
+async function fetchBatch(offset) {
+  const q = `SELECT DISTINCT ?site ?siteLabel ?siteEnLabel ?countryLabel ?coord ?year ?unescoId
+(GROUP_CONCAT(?critLabel;separator="|") AS ?crit) WHERE {
+  ?site wdt:P1435 wd:Q9259; wdt:P757 ?unescoId.
+  OPTIONAL{?site wdt:P17 ?c.} OPTIONAL{?site wdt:P625 ?coord.}
+  OPTIONAL{?site wdt:P571 ?i. BIND(YEAR(?i) AS ?year)}
+  OPTIONAL{?site wdt:P2614 ?cr. SERVICE wikibase:label{bd:serviceParam wikibase:language "en". ?cr rdfs:label ?critLabel.}}
+  SERVICE wikibase:label{bd:serviceParam wikibase:language "zh,en". ?site rdfs:label ?siteLabel. ?c rdfs:label ?countryLabel.}
+  SERVICE wikibase:label{bd:serviceParam wikibase:language "en". ?site rdfs:label ?siteEnLabel.}
+} GROUP BY ?site ?siteLabel ?siteEnLabel ?countryLabel ?coord ?year ?unescoId
+ORDER BY ?unescoId LIMIT 700 OFFSET ${offset}`;
+  const r = await fetch(SPARQL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'}, body:'query='+encodeURIComponent(q) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return (await r.json()).results.bindings;
+}
+
+async function loadFromWikidata() {
+  document.getElementById('loadingTitle').textContent = '🌐 从 Wikidata 加载数据';
+  setProgress(5, '正在获取第 1/3 批…');
+  const b1 = await fetchBatch(0);
+  setProgress(38, `已获取 ${b1.length} 条，正在获取第 2/3 批…`);
+  const b2 = await fetchBatch(700);
+  setProgress(68, `已获取 ${b1.length+b2.length} 条，正在获取第 3/3 批…`);
+  const b3 = await fetchBatch(1400);
+  setProgress(90, '正在处理数据…');
+
+  const raw = [...b1,...b2,...b3];
+  const mp = new Map();
+  for (const b of raw) {
+    const uid = b.unescoId?.value; if(!uid) continue;
+    const ex = mp.get(uid);
+    if(!ex||(!ex.coord?.value&&b.coord?.value)) mp.set(uid,b);
+    else if(ex&&b.crit?.value&&!ex.crit?.value) mp.set(uid,b);
+  }
+  return [...mp.values()]
+    .sort((a,b)=>a.unescoId.value.localeCompare(b.unescoId.value,undefined,{numeric:true}))
+    .map(b=>{ const[lat,lng]=parseCoord(b.coord?.value); return{id:b.unescoId.value,zh:b.siteLabel?.value||b.siteEnLabel?.value||'',en:b.siteEnLabel?.value||b.siteLabel?.value||'',country:b.countryLabel?.value||'',lat,lng,type:getType(b.crit?.value),year:parseInt(b.year?.value)||0,qid:b.site.value.split('/').pop()}; });
+}
+
+// ── 主入口 ──
+(async function main() {
+  setProgress(10, '检查本地缓存…');
+  const cached = await tryLoadLocalWorldJs();
+
+  if (cached) {
+    fromCache = true;
+    setProgress(100, '读取本地缓存…');
+    buildMarkers(window.WORLD_DATA);
+    hideOverlay();
+    document.getElementById('stats').textContent = `共 ${allSites.length} 处（缓存）`;
+    return;
+  }
+
+  // 没有本地 world.js，从 Wikidata 加载
+  try {
+    const sites = await loadFromWikidata();
+    setProgress(100, '完成');
+    buildMarkers(sites);
+    setTimeout(hideOverlay, 300);
+    // 显示下载提示
+    document.getElementById('siteCount').textContent = allSites.length;
+    document.getElementById('banner').classList.add('show');
+  } catch(err) {
+    const box = document.getElementById('errorBox');
+    box.style.display = 'block';
+    box.innerHTML = `加载失败：${err.message}<br><small>请检查网络连接后刷新，或将 world.js 放入同一文件夹</small>`;
+    document.getElementById('progressFill').style.background = '#ff6b6b';
+    document.getElementById('loadingMsg').textContent = '加载出错';
+  }
+})();
+</script>
+</body>
+</html>
